@@ -2,12 +2,19 @@ import requests
 import json
 import urllib2
 
+
+def chunkify(_list, chunk_size):
+    for i in xrange(0, len(_list), chunk_size):
+        yield _list[i: i + chunk_size]
+
+
 class Sentiment140API(object):
 
     BASE_URL = "http://www.sentiment140.com/api"
 
-    def __init__(self, appid=None):
+    def __init__(self, appid=None, per_bulk_request=5000):
         self.appid = appid
+        self.per_bulk_request = per_bulk_request
 
 
     def _build_url(self, api_method):
@@ -31,8 +38,14 @@ class Sentiment140API(object):
         return self._fetch_url(url, params={'text' : text}).json()['results']
 
 
-    def bulk_classify_json(self, tweets):
-        url = self._build_url('bulkClassifyJson')
-        return self._fetch_url(url, data=json.dumps(
-                                {'data' : tweets}),
-                                method='POST').json()['data']
+    def bulk_classify_json(self, data):
+
+        results = []
+
+        for chunk in chunkify(data, self.per_bulk_request):
+            url = self._build_url('bulkClassifyJson')
+
+            results.extend(self._fetch_url(url, data=json.dumps(
+                           {'data' : data}), method='POST').json()['data'])
+
+        return results
